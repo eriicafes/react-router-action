@@ -1,6 +1,6 @@
 {
   "name": "react-router-action",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Typesafe react router actions",
   "private": false,
   "main": "./dist/index.js",
