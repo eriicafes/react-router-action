@@ -105,22 +105,43 @@ export default function Page({ actionData }: Route.ComponentProps) {
 }
 ```
 
-## Action Args
+## Returning Responses
 
-Action args is the secod argument to the action handler.
-Explicitly type action args to use auto-generated types.
+Return a response using `data` or `error`. You can also pass status code or response headers. By default a `200` status code is sent for `data` responses while `error` responses require an explcit status code. Error responses can also contain [field errors](#field-errors).
 
 ```tsx
-import { createAction } from "react-router-action";
-import { z } from "zod";
-import type { Route } from "./+types/page";
+const ping = createAction({
+  schema: z.object({}),
+  handler(ctx) {
+    // data response with status
+    const res1 = ctx.data("pong", 200);
 
-const echo = createAction({
-  schema: z.object({
-    value: z.string(),
-  }),
-  handler(ctx, args: Route.ActionArgs) {
-    // action args is typed correctly
+    // data response with status and headers
+    const res2 = ctx.data("pong", {
+      status: 200,
+      headers: {
+        // ...custom headers
+      },
+    });
+
+    // error response with status
+    const res2 = ctx.error("failed", 400);
+
+    // error response with status and field errors
+    const res2 = ctx.error("failed", 400, {
+      // ...field errors
+    });
+  },
+});
+```
+
+Throw responses like redirects so they don't affect the returned type.
+
+```tsx
+const ping = createAction({
+  schema: z.object({}),
+  handler(ctx) {
+    throw redirect("/login");
   },
 });
 ```
@@ -128,7 +149,7 @@ const echo = createAction({
 ## Field Errors
 
 Field errors are returned with a `400` status code when input validation fails.
-You can also return explicit field errors in the route handler.
+You can also return explicit field errors in the action handler.
 
 ```tsx
 const echo = createAction({
@@ -176,4 +197,24 @@ export default function Page({ actionData }: Route.ComponentProps) {
     </Form>
   );
 }
+```
+
+## Action Args
+
+Action args is the second argument to the action handler.
+Explicitly type action args to use auto-generated types.
+
+```tsx
+import { createAction } from "react-router-action";
+import { z } from "zod";
+import type { Route } from "./+types/page";
+
+const echo = createAction({
+  schema: z.object({
+    value: z.string(),
+  }),
+  handler(ctx, args: Route.ActionArgs) {
+    // action args is typed correctly
+  },
+});
 ```
