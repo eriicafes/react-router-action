@@ -1,0 +1,40 @@
+{
+  "name": "react-router-action",
+  "version": "1.0.0",
+  "description": "Typesafe react router actions",
+  "private": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "release": "pnpm run build && changeset publish",
+    "watch": "vitest",
+    "test": "vitest run"
+  },
+  "keywords": [],
+  "author": "Eric Afes <eriicafes@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eriicafes/react-router-action.git"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=18",
+    "react-router": ">=7",
+    "zod": ">=3"
+  },
+  "devDependencies": {
+    "@types/react": "18",
+    "tsup": "^8.3.6",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.6"
+  }
+}
