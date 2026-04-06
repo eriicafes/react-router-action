@@ -12,6 +12,8 @@ npm i react-router-action
 
 ### Create actions and export.
 
+`createAction` accepts any Standard Schema compatible validator. It is also optional, and when omitted `ctx.input` defaults to `unknown`.
+
 ```tsx
 import { createAction, routeAction } from "react-router-action";
 import { z } from "zod";
@@ -26,7 +28,6 @@ const echo = createAction({
 });
 
 const ping = createAction({
-  schema: z.object({}),
   handler(ctx) {
     return ctx.data("pong");
   },
@@ -46,40 +47,23 @@ import type { Route } from "./+types/page";
 
 export async function action(args: Route.ActionArgs) {
   // run other code
-  return matchAction(args, {
+  const formData = await args.request.formData();
+
+  return matchAction(args, formData, {
     echo,
     ping,
   });
 }
 ```
 
+When you call `matchAction` directly, you are responsible for reading the request body yourself. `routeAction` handles `request.formData()` for you.
+
 ### Submit with form or fetcher.
-
-```tsx
-import { Form } from "react-router";
-import type { Route } from "./+types/page";
-
-export default function Page({ actionData }: Route.ComponentProps) {
-  return (
-    <Form method="POST">
-      <input type="hidden" name="_action" value="echo" />
-      <div>
-        <input type="text" name="value" />
-        {actionData?.echo?.fieldErrors?.value && (
-          <p>{actionData.echo.fieldErrors.value[0]}</p>
-        )}
-      </div>
-
-      {actionData?.echo?.error && <p>Error: {actionData.echo.error}</p>}
-      {actionData?.echo?.success && <p>Last submit: {actionData.echo.data}</p>}
-      <button>Submit</button>
-    </Form>
-  );
-}
-```
 
 Use `actionResult` or `useActionResult` hook to reduce optional chaining.
 [Field errors](#field-errors) are also flattened by default to return just the first error.
+
+#### With form
 
 ```tsx
 import { Form } from "react-router";
@@ -90,8 +74,7 @@ export default function Page({ actionData }: Route.ComponentProps) {
   const echoResult = useActionResult(actionData, "echo");
 
   return (
-    <Form method="POST">
-      <input type="hidden" name="_action" value="echo" />
+    <Form method="POST" action="?action=echo">
       <div>
         <input type="text" name="value" />
         {echoResult.fieldErrors?.value && <p>{echoResult.fieldErrors.value}</p>}
@@ -105,13 +88,53 @@ export default function Page({ actionData }: Route.ComponentProps) {
 }
 ```
 
+#### With fetcher.
+
+```tsx
+import { useFetcher } from "react-router";
+import { useActionResult } from "react-router-action";
+
+export default function Page() {
+  const fetcher = useFetcher<typeof import("./page").action>();
+  const echoResult = useActionResult(fetcher.data, "echo");
+
+  return (
+    <>
+      <fetcher.Form method="POST" action="?action=echo">
+        <div>
+          <input type="text" name="value" />
+          {echoResult.fieldErrors?.value && (
+            <p>{echoResult.fieldErrors.value}</p>
+          )}
+        </div>
+
+        {echoResult.error && <p>Error: {echoResult.error}</p>}
+        {echoResult.success && <p>Last submit: {echoResult.data}</p>}
+        <button>Submit</button>
+      </fetcher.Form>
+
+      <button
+        type="button"
+        onClick={() =>
+          fetcher.submit(
+            { value: "hello" },
+            { method: "post", action: "?action=echo" },
+          )
+        }
+      >
+        Submit with fetcher.submit
+      </button>
+    </>
+  );
+}
+```
+
 ## Returning Responses
 
 Return a response using `data` or `error`. You can also pass status code or response headers. By default a `200` status code is sent for `data` responses while `error` responses require an explcit status code. Error responses can also contain [field errors](#field-errors).
 
 ```tsx
 const ping = createAction({
-  schema: z.object({}),
   handler(ctx) {
     // data response with status
     const res1 = ctx.data("pong", 200);
@@ -139,7 +162,6 @@ Throw responses like redirects so they don't affect the returned type.
 
 ```tsx
 const ping = createAction({
-  schema: z.object({}),
   handler(ctx) {
     throw redirect("/login");
   },
@@ -178,8 +200,7 @@ export default function Page({ actionData }: Route.ComponentProps) {
   const echoResult = useActionResult(actionData, "echo", { errors: "all" });
 
   return (
-    <Form method="POST">
-      <input type="hidden" name="_action" value="echo" />
+    <Form method="POST" action="?action=echo">
       <div>
         <input type="text" name="value" />
         {echoResult.fieldErrors?.value && (
