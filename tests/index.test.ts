@@ -7,7 +7,7 @@ describe("Action", () => {
   const test = createAction({
     schema: z.object({
       data: z.coerce.number({
-        invalid_type_error: "expected number",
+        error: "expected number",
       }),
     }),
     handler(ctx, args: RouteArgs<{ id: string }>) {
@@ -21,12 +21,11 @@ describe("Action", () => {
           id: args.params.id,
           data: ctx.input.data,
         },
-        200
+        200,
       );
     },
   });
   const ping = createAction({
-    schema: z.object({}),
     handler(ctx) {
       return ctx.data("pong");
     },
@@ -37,16 +36,25 @@ describe("Action", () => {
     params: TParams;
     context: TContext;
   };
-  const makeRequest = (params: { id: string }, formData: FormData) => {
+  const makeRequest = async (
+    params: { id: string },
+    action: string | undefined,
+    formData: FormData,
+  ) => {
+    const url = new URL(`http://localhost/${params.id}`);
+    if (action) {
+      url.searchParams.set("action", action);
+    }
+
     const args: RouteArgs<{ id: string }> = {
-      request: new Request(`http://localhost/${params.id}`, {
+      request: new Request(url, {
         method: "POST",
         body: formData,
       }),
       params: params,
       context: {},
     };
-    return matchAction(args, {
+    return matchAction(args, await args.request.formData(), {
       test,
       ping,
     });
@@ -54,9 +62,8 @@ describe("Action", () => {
 
   it("returns successful response", async () => {
     const formData = new FormData();
-    formData.append("_action", "test");
     formData.append("data", "1");
-    const response = await makeRequest({ id: "1" }, formData);
+    const response = await makeRequest({ id: "1" }, "test", formData);
 
     expect(response.init?.status).toStrictEqual(200);
     expect(response.data).toStrictEqual({
@@ -78,8 +85,7 @@ describe("Action", () => {
     expect(result.fieldErrors).toStrictEqual(undefined);
 
     const formData2 = new FormData();
-    formData2.append("_action", "ping");
-    const response2 = await makeRequest({ id: "1" }, formData2);
+    const response2 = await makeRequest({ id: "1" }, "ping", formData2);
 
     expect(response2.data).toStrictEqual({
       ping: {
@@ -96,9 +102,8 @@ describe("Action", () => {
 
   it("returns error response", async () => {
     const formData = new FormData();
-    formData.append("_action", "test");
     formData.append("data", "1");
-    const response = await makeRequest({ id: "2" }, formData);
+    const response = await makeRequest({ id: "2" }, "test", formData);
 
     expect(response.init?.status).toStrictEqual(403);
     expect(response.data).toStrictEqual({
@@ -121,9 +126,8 @@ describe("Action", () => {
 
   it("returns error response on invalid data", async () => {
     const formData = new FormData();
-    formData.append("_action", "test");
     formData.append("data", "one");
-    const response = await makeRequest({ id: "1" }, formData);
+    const response = await makeRequest({ id: "1" }, "test", formData);
 
     expect(response.init?.status).toStrictEqual(400);
     expect(response.data).toStrictEqual({
@@ -150,10 +154,10 @@ describe("Action", () => {
     });
   });
 
-  it("returns error response on missing _action", async () => {
+  it("returns error response on missing action", async () => {
     const formData = new FormData();
     formData.append("data", "1");
-    const response = await makeRequest({ id: "1" }, formData);
+    const response = await makeRequest({ id: "1" }, undefined, formData);
 
     expect(response.init?.status).toStrictEqual(400);
     expect(response.data).toStrictEqual({});
@@ -162,5 +166,14 @@ describe("Action", () => {
     expect(result.data).toStrictEqual(undefined);
     expect(result.error).toStrictEqual(undefined);
     expect(result.fieldErrors).toStrictEqual(undefined);
+  });
+
+  it("returns error response on unknown action", async () => {
+    const formData = new FormData();
+    formData.append("data", "1");
+    const response = await makeRequest({ id: "1" }, "unknown", formData);
+
+    expect(response.init?.status).toStrictEqual(400);
+    expect(response.data).toStrictEqual({});
   });
 });
